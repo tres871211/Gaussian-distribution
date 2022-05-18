@@ -218,10 +218,10 @@
             Deriv2.df <- rbind(Deriv2.df, DerivS.df)
             }
       }
+      Deriv.df <- Deriv2.df
+      rm(DerivS.df, DerivSR.df, model, Y0,Y1,Y2,Deriv2.df)
       
-      rm(DerivS.df, DerivSR.df, model, Y0,Y1,Y2)
-      
-      Deriv_max.df <- left_join(sm_max,Deriv2.df[, c("Range", "Samples", "x","y")],by = c("Range", "Samples"))
+      Deriv_max.df <- left_join(sm_max,Deriv.df[, c("Range", "Samples", "x","y")],by = c("Range", "Samples"))
 
       ## Plot
       P_OvDenPoint + geom_text(data = Deriv_max.df, aes(x=x,y=smooth, label=paste0(Deriv_max.df$Samples,": ",round(smooth,4)), 

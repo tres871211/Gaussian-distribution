@@ -1,119 +1,103 @@
 ##### Presetting ######
-rm(list = ls()) # Clean variable
-memory.limit(150000)
+  rm(list = ls()) # Clean variable
+  memory.limit(150000)
 
 ##### Load Packages #####
-## Check whether the installation of those packages is required from basic
-Package.set <- c("tidyverse","readxl")
-for (i in 1:length(Package.set)) {
-  if (!requireNamespace(Package.set[i], quietly = TRUE)){
-    install.packages(Package.set[i])
+  ## Check whether the installation of those packages is required from basic
+  Package.set <- c("tidyverse","readxl")
+  for (i in 1:length(Package.set)) {
+    if (!requireNamespace(Package.set[i], quietly = TRUE)){
+      install.packages(Package.set[i])
+    }
   }
-}
-## Load Packages
-lapply(Package.set, library, character.only = TRUE)
-rm(Package.set,i)
+  ## Load Packages
+  lapply(Package.set, library, character.only = TRUE)
+  rm(Package.set,i)
 
 
 ##### input data #####
-  frequency_distribution.df <- read_excel("C:/Users/YSL/Downloads/cachexia_muscle-area-fiber-counts.xlsx", 
+  MusFib.df <- read_excel("C:/Users/YSL/Downloads/cachexia_muscle-area-fiber-counts.xlsx", 
                                           sheet = "skeletal muscle sample raw data")
 
-
-
 ##### Preprocess the dataframe #####
-## Group
-Anno.df <- data.frame(Muscle_fiber_samples= colnames(frequency_distribution.df),
-                      Group = c("Severe","Severe","Severe","Medium","Mild","Medium","Severe","Severe","Mild","Medium","Mild","Severe"))
+  ## Group
+  Anno.df <- data.frame(Samples = colnames(MusFib.df),
+                        Groups = c("Severe","Severe","Severe","Medium","Mild","Medium","Severe","Severe","Mild","Medium","Mild","Severe"))
 
-## Main
-df <- frequency_distribution.df
-df <- pivot_longer(df, cols = 1:ncol(df), 
-                   names_to = "Muscle_fiber_samples", values_to = "Muscle_fiber_size") %>%
-      left_join(Anno.df)
+##### Create dataframe for ggplot ##### 
+  FreDis.df <- MusFib.df %>% pivot_longer(cols = 1:ncol(MusFib.df), 
+                                          names_to = "Samples", 
+                                          values_to = "Area") %>% left_join(Anno.df)
 
 
-##### Density Plot #####
-## Basic plot
-ggplot(df, aes(x=Muscle_fiber_size, colour=Muscle_fiber_samples)) + geom_density()
-ggplot(df, aes(x=Muscle_fiber_size, colour=Group)) + geom_density()
-ggplot(df, aes(x=Muscle_fiber_size, colour=Group, group = Muscle_fiber_samples)) + geom_density(kernel = "gaussian") # https://r-charts.com/distribution/density-plot-ggplot2/
-ggplot(df, aes(x=Muscle_fiber_size, colour=Group, group = Muscle_fiber_samples)) + 
-      geom_density() + geom_rug(aes(min_dist= 400))
+##### Basic Plot #####
+  #### Basic Density plot ####
+  ggplot(FreDis.df, aes(x = Area, colour= Samples)) + geom_density()
+  ggplot(FreDis.df, aes(x = Area, colour= Groups)) + geom_density()
+  ggplot(FreDis.df, aes(x = Area, colour= Groups, group = Samples)) + geom_density(kernel = "gaussian") # https://r-charts.com/distribution/density-plot-ggplot2/
+  ggplot(FreDis.df, aes(x = Area, colour= Groups, group = Samples)) + 
+         geom_density() + geom_rug(aes(min_dist= 400))
+  qplot(x=Area, data=FreDis.df, geom='density', fill=as.factor(Samples),
+        alpha=I(0.5), position='identity', color=I('black'),
+        y=..count../sum(..count..))
 
-## Beautify plot
-p <- ggplot(df, aes(x=Muscle_fiber_size, colour=Group, group = Muscle_fiber_samples)) + geom_density()
-p
-p + theme_classic() + # White background
-    theme(axis.line = element_line(colour = "black", 
-                                    size = 1, linetype = "solid")) + # Change the line type and color of axis lines
-    theme(axis.text.x = element_text(face="bold", color="black", 
-                                     size=14, angle=0),
-          axis.text.y = element_text(face="bold", color="black", 
-                                     size=14, angle=0)) +  # Change the appearance and the orientation angle
-    ggtitle("Frequency distribution")+ # Change the main title and axis labels
-    xlab("Muscle fiber size") + ylab("% Relative Frequency") +
-    theme(
-    plot.title = element_text(color="black", size=20, face="bold", hjust = 0.5),
-    axis.title.x = element_text(color="black", size=16, face="bold"),
-    axis.title.y = element_text(color="black", size=16, face="bold") # Change the color, the size and the face of  the main title, x and y axis labels
-    )+
-    scale_x_continuous(breaks=seq(0,6500,500)) + # Setting the tick marks on an axis
-    theme(legend.title = element_text(colour="black", size=15, face="bold")) + # legend title
-    theme(legend.text = element_text(colour="black", size=12, face="bold")) + # legend labels
-    theme(legend.position = c(0.8, 0.8)) + #  legend.position 
-    theme(legend.key.size = unit(1, 'cm')) -> p2
-p2
-
+  ## Beautify plot
+    p_Den <- ggplot(FreDis.df, aes(x = Area, colour = Groups, group = Samples)) + geom_density()
+    p_Den
+    p_Den + theme_classic() + # White background
+            theme(axis.line = element_line(colour = "black", 
+                                            size = 1, linetype = "solid")) + # Change the line type and color of axis lines
+            theme(axis.text.x = element_text(face="bold", color="black", 
+                                             size=14, angle=0),
+                  axis.text.y = element_text(face="bold", color="black", 
+                                             size=14, angle=0)) +  # Change the appearance and the orientation angle
+            ggtitle("Frequency distribution")+ # Change the main title and axis labels
+            xlab("Muscle fiber size") + ylab("% Relative Frequency") +
+            theme(
+            plot.title = element_text(color="black", size=20, face="bold", hjust = 0.5),
+            axis.title.x = element_text(color="black", size=16, face="bold"),
+            axis.title.y = element_text(color="black", size=16, face="bold") # Change the color, the size and the face of  the main title, x and y axis labels
+            )+
+            scale_x_continuous(breaks=seq(0,6500,500)) + # Setting the tick marks on an axis
+            theme(legend.title = element_text(colour="black", size=15, face="bold")) + # legend title
+            theme(legend.text = element_text(colour="black", size=12, face="bold")) + # legend labels
+            theme(legend.position = c(0.8, 0.8)) + #  legend.position 
+            theme(legend.key.size = unit(1, 'cm')) -> p_Den2
+    p_Den2
+    
+    #### Basic dotplot ####
+    P_Dot <-  ggplot(FreDis.df, aes(x=Samples, y= Area)) + geom_point()
+    P_Dot
+    
+    # #error# Discrete value supplied to continuous scale
+    # ggplot(FreDis.df) + geom_density(aes(x=Area, colour=Groups, group = Samples)) +
+    # geom_point(aes(x=Samples, y= Area))
+    
+    #### Basic Hisplot ####
+    ## Stack
+    P_His <- ggplot(FreDis.df) + geom_histogram(aes(x = Area, colour = Groups, fill= Samples),
+                                                binwidth = 400)
+    P_His
+    P_His2 <- qplot(x=Area, data=FreDis.df, geom='histogram', fill=as.factor(Samples), 
+                    alpha=I(0.5), binwidth=400, position='identity')
+    P_His2
+    ## Overlay
+    P_His3  <- ggplot(FreDis.df, aes(x=Area,  fill=Samples)) + 
+      geom_histogram( aes(y = ..density..), color="#e9ecef", alpha=0.6, position = 'identity', binwidth = 400) +
+      # scale_fill_manual(values=c("#69b3a2", "#404080")) +
+      labs(fill="")
+    P_His3
+  
+##### Density Plot #####  
 
 ############################################################################################################################
 
 # Test
-p2.2 <-  ggplot(df, aes(x=Muscle_fiber_samples, y= Muscle_fiber_size)) + geom_point()
-p2.2
-
-ggplot(df) + 
-  geom_density(aes(x=Muscle_fiber_size, colour=Group, group = Muscle_fiber_samples)) +
-  geom_point(aes(x=Muscle_fiber_samples, y= Muscle_fiber_size))
-
-##
-
-p3 <- ggplot(df, aes(x=Muscle_fiber_size, colour=Group)) + geom_density()
-p3
-
-+ geom_point(df, aes(x=Muscle_fiber_samples, y= Muscle_fiber_size))
-
-##
-ggplot(df) + geom_histogram(aes(x = Muscle_fiber_size, colour = Group, fill= Muscle_fiber_samples),
-                            binwidth = 400)
-p4 <- ggplot(df, aes(x=Muscle_fiber_size,  fill=Muscle_fiber_samples)) +
-  geom_histogram( aes(y = ..density..), color="#e9ecef", alpha=0.6, position = 'identity', binwidth = 400) +
- # scale_fill_manual(values=c("#69b3a2", "#404080")) +
-  labs(fill="")
-p4
 
 
 
-p4  <- qplot(x=Muscle_fiber_size, data=df, geom='histogram', fill=as.factor(Muscle_fiber_samples), 
-          alpha=I(0.5), binwidth=400, position='identity')
-p4
-qplot(x=Muscle_fiber_size, data=df, geom='density', fill=as.factor(Muscle_fiber_samples),
-      alpha=I(0.5), position='identity', color=I('black'),
-      y=..count../sum(..count..))
 
 
-ggplot(df, aes(x=Muscle_fiber_size, fill= Muscle_fiber_samples)) +
-  geom_histogram(aes(y=..density..), binwidth = 400) +
-  geom_density(aes(y=..density..))+ 
-  scale_y_continuous(sec.axis = sec_axis(~./3, name = "series2"))
-
-ggplot(mtcars, aes((wt-3)/100)) +
-  geom_histogram(aes(y=..density..), binwidth = 1/120) +
-  geom_density(aes(y=..density..))
-
-ggplot(mtcars, aes(wt)) +
-  geom_histogram(aes(y=..density..), binwidth = 1) +
-  geom_density(aes(y=..density..))
 
 # ## 
 # library(UsingR)
@@ -124,15 +108,15 @@ ggplot(mtcars, aes(wt)) +
 
 
 ## 
-p <- ggplot(data = df,  mapping = aes(
-              x = Muscle_fiber_size, 
-              color = Muscle_fiber_samples))
+p <- ggplot(data = FreDis.df,  mapping = aes(
+              x = Area, 
+              color = Samples))
 p + geom_line(stat = "density")
 
 ##
-dfs <- df[df$Muscle_fiber_samples=="F88",]
+dfs <- FreDis.df[FreDis.df$Samples=="F88",]
 p <- ggplot(data = dfs,
-            mapping = aes(x = Muscle_fiber_size, fill=as.factor(Muscle_fiber_samples)))
+            mapping = aes(x = Area, fill=as.factor(Samples)))
 p + geom_histogram(mapping = aes(y = ..density..), alpha = 0.4, binwidth=400) +
   geom_density(size = 1.1, alpha = 0.6)
 
@@ -158,7 +142,7 @@ plot(plt)
 
 ############################################################################################################################
 ## Main
-df <- frequency_distribution.df
+df <- MusFib.df
 df <- pivot_longer(df, cols = 1:ncol(df), 
                    names_to = "Muscle_fiber_samples", values_to = "Muscle_fiber_size") %>%
   left_join(Anno.df)

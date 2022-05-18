@@ -230,6 +230,54 @@ sm_max = df6 %>% group_by(Muscle_fiber_samples) %>%
   mutate(smooth =predict(loess(Fre~as.numeric(avg), span=.5))) %>% 
   slice_max(order_by = smooth)
 
+## Find max in center
+Deriv.df = df6 %>% group_by(Muscle_fiber_samples) %>%
+  mutate(smooth =predict(loess(Fre~as.numeric(avg), span=.5))) 
+Muscle_fiber_samples.set <- Anno.df$Muscle_fiber_samples
+model <- smooth.spline(x = Deriv.df$avg, y = Deriv.df$smooth)
+Y1 <- predict(model, x = seq(0.1,max(Deriv.df$avg),length=1000), deriv=1)
+Y2 <- predict(model, x = seq(0.1,max(Deriv.df$avg),length=1000), deriv=2)
+
+for (i in 1:length(Muscle_fiber_samples.set)) {
+  if(i==1){
+    Deriv2.df <- Deriv.df[Deriv.df$Muscle_fiber_samples == Muscle_fiber_samples.set[i], ]
+    model <- smooth.spline(x = Deriv2.df$avg, y = Deriv2.df$smooth)
+    Y0 <- predict(model, x = seq(0.1,max(Deriv2.df$avg),length=1000), deriv=0)
+    Y1 <- predict(model, x = seq(0.1,max(Deriv2.df$avg),length=1000), deriv=1)
+    Y2 <- predict(model, x = seq(0.1,max(Deriv2.df$avg),length=1000), deriv=2)
+    DerivSR.df <- data.frame(x=Y1$x, y=Y0$y ,d1=Y1$y, d2=Y2$y)
+    DerivSR.df <- DerivSR.df[DerivSR.df$d2 < 0,]
+    
+    for (j in 1:nrow(DerivSR.df)) {
+      if(DerivSR.df$d1[j] == min(DerivSR.df$d1) && DerivSR.df$d2[j] < 0)
+        Deriv2.df$x = DerivSR.df$x[j]
+        Deriv2.df$y = DerivSR.df$y[j]
+      
+    }
+  }else{
+      DerivS.df <- Deriv.df[Deriv.df$Muscle_fiber_samples == Muscle_fiber_samples.set[i], ]
+      model <- smooth.spline(x = DerivS.df$avg, y = DerivS.df$smooth)
+      Y0 <- predict(model, x = seq(0.1,max(DerivS.df$avg),length=1000), deriv=0)
+      Y1 <- predict(model, x = seq(0.1,max(DerivS.df$avg),length=1000), deriv=1)
+      Y2 <- predict(model, x = seq(0.1,max(DerivS.df$avg),length=1000), deriv=2)
+      DerivSR.df <- data.frame(x=Y1$x, y=Y0$y ,d1=Y1$y, d2=Y2$y)
+      DerivSR.df <- DerivSR.df[DerivSR.df$d2 < 0,]
+      
+      for (j in 1:nrow(DerivSR.df)) {
+        if(DerivSR.df$d1[j] == min(DerivSR.df$d1) && DerivSR.df$d2[j] < 0)
+          DerivS.df$x = DerivSR.df$x[j]
+          DerivS.df$y = DerivSR.df$y[j]
+      }
+      
+      Deriv2.df <- rbind(Deriv2.df, DerivS.df)
+      }
+}
+
+rm(DerivS.df, DerivSR.df, model, Y0,Y1,Y2)
+
+Deriv_max.df <- left_join(sm_max,Deriv2.df[, c("Range", "Muscle_fiber_samples", "x","y")],by = c("Range", "Muscle_fiber_samples"))
+                
+
 # Plot, using the same smooth as above (default is loess, span set at set above)
 # df6 %>%
 #   ggplot(df6, mapping = aes(avg,Fre,  group = Muscle_fiber_samples, color = Group)) +
@@ -238,7 +286,33 @@ sm_max = df6 %>% group_by(Muscle_fiber_samples) %>%
 #   geom_point(data=sm_max, aes(y=smooth),color="black", size=5) + 
 #   geom_text(data = sm_max, aes(y=smooth, label=paste0(sm_max$Muscle_fiber_samples,": ",round(smooth,1))), color="black")
 # 
-plt + geom_text(data = sm_max, aes(y=smooth, label=paste0(sm_max$Muscle_fiber_samples,": ",round(smooth,4))), color="black") -> plt2
+
+## sm_max
+plt + geom_text(data = sm_max, aes(y=smooth, label=paste0(sm_max$Muscle_fiber_samples,": ",round(smooth,4)), color=Group), size=4, face="bold") -> plt2
+
+plt2 + theme_classic() + # White background
+  theme(axis.line = element_line(colour = "black", 
+                                 size = 1, linetype = "solid")) + # Change the line type and color of axis lines
+  theme(axis.text.x = element_text(face="bold", color="black", 
+                                   size=14, angle=0),
+        axis.text.y = element_text(face="bold", color="black", 
+                                   size=14, angle=0)) +  # Change the appearance and the orientation angle
+  ggtitle("Frequency distribution")+ # Change the main title and axis labels
+  xlab("Muscle fiber size") + ylab("% Relative Frequency") +
+  theme(
+    plot.title = element_text(color="black", size=20, face="bold", hjust = 0.5),
+    axis.title.x = element_text(color="black", size=16, face="bold"),
+    axis.title.y = element_text(color="black", size=16, face="bold") # Change the color, the size and the face of  the main title, x and y axis labels
+  )+
+  scale_x_continuous(breaks=seq(0,6500,500)) + # Setting the tick marks on an axis
+  theme(legend.title = element_text(colour="black", size=15, face="bold")) + # legend title
+  theme(legend.text = element_text(colour="black", size=12, face="bold")) + # legend labels
+  theme(legend.position = c(0.9, 0.6)) + #  legend.position 
+  theme(legend.key.size = unit(0.8, 'cm')) -> plt3
+plt3
+
+## Deriv_max.df
+plt + geom_text(data = Deriv_max.df, aes(x=x,y=smooth, label=paste0(Deriv_max.df$Muscle_fiber_samples,": ",round(smooth,4)), color=Group), size=4, face="bold") -> plt2
 
 plt2 + theme_classic() + # White background
   theme(axis.line = element_line(colour = "black", 

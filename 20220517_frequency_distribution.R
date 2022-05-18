@@ -62,7 +62,7 @@
             theme(legend.title = element_text(colour="black", size=15, face="bold")) + # legend title
             theme(legend.text = element_text(colour="black", size=12, face="bold")) + # legend labels
             theme(legend.position = c(0.8, 0.8)) + #  legend.position 
-            theme(legend.key.size = unit(1, 'cm')) -> p_Den2
+            theme(legend.key.size = unit(1, 'cm')) -> P_Den2
     P_Den2
     
     #### Basic dotplot ####
@@ -101,84 +101,86 @@
                    geom_density(size = 0.8, alpha = 0.4)
     rm(FreDis_S.df)  
 ##### Density Plot #####  
-
-############################################################################################################################
-
-# Test
-
-
-
-############################################################################################################################
-## Main
-
-
-FreDis.df <- FreDis.df[!is.na(FreDis.df$Area),]
-MS_Max = FreDis.df$Area  %>% max(na.rm = T)
-MS_Min = FreDis.df$Area  %>% min(na.rm = T)
-
-Bin = 400
-
-Max_Range = floor(MS_Max/Bin)+1 # floor(): Round down
-
-FreDis.df$Range <- 1
-for (i in 0:Max_Range+1) {
-  for (j in 1:nrow(FreDis.df)) {
-    #if(FreDis.df$Area[j] %in% range(i*400,(i+1)*400)){
-    if(i*Bin <= FreDis.df$Area[j] && FreDis.df$Area[j] < (i+1)*Bin ){
-        
-      FreDis.df$Range[j] <- i+1
-    }else{
-      FreDis.df$Range[j] <- FreDis.df$Range[j]
+  #### Set the bin and classify different range for Area ####
+    FreDis.df <- FreDis.df[!is.na(FreDis.df$Area),]
+    MS_Max = FreDis.df$Area  %>% max(na.rm = T)
+    MS_Min = FreDis.df$Area  %>% min(na.rm = T)
+    
+    Bin = 400
+    
+    Max_Range = floor(MS_Max/Bin)+1 # floor(): Round down
+    
+    FreDis.df$Range <- 1
+    for (i in 1:Max_Range) {
+      for (j in 1:nrow(FreDis.df)) {
+        #if(FreDis.df$Area[j] %in% range(i*400,(i+1)*400)){
+        if((i-1)*Bin <= FreDis.df$Area[j] && FreDis.df$Area[j] < (i)*Bin ){
+            
+          FreDis.df$Range[j] <- i
+        }else{
+          FreDis.df$Range[j] <- FreDis.df$Range[j]
+        }
+      }
     }
-  }
-}
+    #### Group the sample by range of bin for each type of sample ####
+    Tem.df <-  FreDis.df %>% group_by(Samples) %>% 
+                             count(Range) %>% 
+                             right_join(FreDis.df) %>%
+                             rename(Count=n)  # colnames(Tem.df)[3] <- "Count" 
+    Tem.df <- Tem.df %>% group_by(Samples) %>% 
+                         count(Samples) %>% 
+                         right_join(Tem.df) %>%
+                         data.frame(., Fre=.$Count/.$n)
+    FreDis.df <- Tem.df %>% group_by(Range,Fre,Samples) %>% 
+                            summarise(avg = mean(Area)) %>% 
+                            left_join(.,FreDis.df, by=c("Samples","Range" ))
+  
+    rm(Tem.df)
 
-## Anno 2
-Anno2.df <- data.frame(Samples = rep(Anno.df$Samples,each =max(df$Range)),
-                                                  Range= seq(1:max(df$Range)))
-# 
-# dfTTT <- left_join(Anno2.df,df)
-# dfTTT[is.na(dfTTT[, "Area"]), "Area"] <- 0
-# dfTTT <- left_join(dfTTT[,-4],Anno.df)
-# 
-# df <- dfTTT
-
-df2 <- df %>% group_by(Samples) %>% 
-              count(Range) %>% right_join(df)
-
-colnames(df2)[3] <- "Count" 
-df3 <- df2 %>% group_by(Samples) %>% 
-       count(Samples) %>% right_join(df2)
-df4 <- data.frame(df3, Fre=df3$Count/df3$n)
-
-df5 <- df4 %>% group_by(Range,Fre,Samples) %>% summarise(avg = mean(Area))
-df6 <- left_join(df5,Anno.df)
-# ggplot(df2, aes(x=avg, fill= Samples)) +
-#   geom_histogram() 
-
-#library(ggpubr)
-plt <- df6 %>%
-  ggplot( mapping =aes(x=avg, y=Fre,color=Group,fill=Group ,
-                       group=Samples, shape= Samples))  +
-  geom_point(aes(x=avg, y=Fre, color=Group ))+
-  scale_shape_manual(values = seq(1:nrow(Anno.df))) + # https://www.datanovia.com/en/blog/ggplot-point-shapes-best-tips/
-  #show_point_shapes(aes(x=avg, y=Fre, color=Group, shape= Samples ))+
-  geom_smooth(se=F,method = "loess")+
-  ggtitle("Full_data") # +
-  # ylim(0,0.03)+
-  # geom_vline(xintercept = 1, color = "#5B5B5B", linetype="dotted", size=0.6)+
-  # geom_vline(xintercept = 2, color = "#5B5B5B", linetype="dotted", size=0.6)+
-  # theme_classic()
-plt
-
-# https://stackoverflow.com/questions/71162252/adding-the-maximum-peak-value-in-ggplot-for-geom-smoth
-# create the smooth and retain rows with max of smooth, using slice_max
-sm_max = df6 %>% group_by(Samples) %>%
-  mutate(smooth =predict(loess(Fre~as.numeric(avg), span=.5))) %>% 
-  slice_max(order_by = smooth)
-
-## Find max in center
-Deriv.df = df6 %>% group_by(Samples) %>%
+    #### Density plot overlay with dotplot by samples group by bin range ####
+    #library(ggpubr)
+    P_OvDenPoint <- FreDis.df %>%
+                    ggplot( mapping =aes(x=avg, y=Fre,color=Groups,fill=Groups ,
+                                         group=Samples, shape= Samples))  +
+                    geom_point(aes(x=avg, y=Fre, color=Groups ))+
+                    scale_shape_manual(values = seq(1:nrow(Anno.df))) + # https://www.datanovia.com/en/blog/ggplot-point-shapes-best-tips/
+                    geom_smooth(se=F,method = "loess")+
+                    ggtitle("Full_data")
+    P_OvDenPoint
+    
+    #### Add text annotation to each line  ####
+     #### At Max y  ####
+      # https://stackoverflow.com/questions/71162252/adding-the-maximum-peak-value-in-ggplot-for-geom-smoth
+      # create the smooth and retain rows with max of smooth, using slice_max
+      sm_max = FreDis.df %>% group_by(Samples) %>%
+              mutate(smooth =predict(loess(Fre~as.numeric(avg), span=.5))) %>% 
+              slice_max(order_by = smooth)
+      ## Plot
+    P_OvDenPoint + geom_text(data = sm_max, aes(y=smooth, label=paste0(sm_max$Samples,": ",round(smooth,4)), color=Groups), size=4, face="bold") +
+        theme_classic() + # White background
+        theme(axis.line = element_line(colour = "black", 
+                                       size = 1, linetype = "solid")) + # Change the line type and color of axis lines
+        theme(axis.text.x = element_text(face="bold", color="black", 
+                                         size=14, angle=0),
+              axis.text.y = element_text(face="bold", color="black", 
+                                         size=14, angle=0)) +  # Change the appearance and the orientation angle
+        ggtitle("Frequency distribution")+ # Change the main title and axis labels
+        xlab("Muscle fiber size") + ylab("% Relative Frequency") +
+        theme(
+          plot.title = element_text(color="black", size=20, face="bold", hjust = 0.5),
+          axis.title.x = element_text(color="black", size=16, face="bold"),
+          axis.title.y = element_text(color="black", size=16, face="bold") # Change the color, the size and the face of  the main title, x and y axis labels
+        )+
+        scale_x_continuous(breaks=seq(0,6500,500)) + # Setting the tick marks on an axis
+        theme(legend.title = element_text(colour="black", size=15, face="bold")) + # legend title
+        theme(legend.text = element_text(colour="black", size=12, face="bold")) + # legend labels
+        theme(legend.position = c(0.9, 0.6)) + #  legend.position 
+        theme(legend.key.size = unit(0.8, 'cm')) -> P_OvDenPoint_Max
+    P_OvDenPoint_Max
+    
+    
+#### Find max in center ####
+Deriv.df = FreDis.df %>% group_by(Samples) %>%
   mutate(smooth =predict(loess(Fre~as.numeric(avg), span=.5))) 
 Samples.set <- Anno.df$Samples
 model <- smooth.spline(x = Deriv.df$avg, y = Deriv.df$smooth)
@@ -234,32 +236,9 @@ Deriv_max.df <- left_join(sm_max,Deriv2.df[, c("Range", "Samples", "x","y")],by 
 #   geom_text(data = sm_max, aes(y=smooth, label=paste0(sm_max$Samples,": ",round(smooth,1))), color="black")
 # 
 
-## sm_max
-plt + geom_text(data = sm_max, aes(y=smooth, label=paste0(sm_max$Samples,": ",round(smooth,4)), color=Group), size=4, face="bold") -> plt2
-
-plt2 + theme_classic() + # White background
-  theme(axis.line = element_line(colour = "black", 
-                                 size = 1, linetype = "solid")) + # Change the line type and color of axis lines
-  theme(axis.text.x = element_text(face="bold", color="black", 
-                                   size=14, angle=0),
-        axis.text.y = element_text(face="bold", color="black", 
-                                   size=14, angle=0)) +  # Change the appearance and the orientation angle
-  ggtitle("Frequency distribution")+ # Change the main title and axis labels
-  xlab("Muscle fiber size") + ylab("% Relative Frequency") +
-  theme(
-    plot.title = element_text(color="black", size=20, face="bold", hjust = 0.5),
-    axis.title.x = element_text(color="black", size=16, face="bold"),
-    axis.title.y = element_text(color="black", size=16, face="bold") # Change the color, the size and the face of  the main title, x and y axis labels
-  )+
-  scale_x_continuous(breaks=seq(0,6500,500)) + # Setting the tick marks on an axis
-  theme(legend.title = element_text(colour="black", size=15, face="bold")) + # legend title
-  theme(legend.text = element_text(colour="black", size=12, face="bold")) + # legend labels
-  theme(legend.position = c(0.9, 0.6)) + #  legend.position 
-  theme(legend.key.size = unit(0.8, 'cm')) -> plt3
-plt3
 
 ## Deriv_max.df
-plt + geom_text(data = Deriv_max.df, aes(x=x,y=smooth, label=paste0(Deriv_max.df$Samples,": ",round(smooth,4)), color=Group), size=4, face="bold") -> plt2
+plt + geom_text(data = Deriv_max.df, aes(x=x,y=smooth, label=paste0(Deriv_max.df$Samples,": ",round(smooth,4)), color=Groups), size=4, face="bold") -> plt2
 
 plt2 + theme_classic() + # White background
   theme(axis.line = element_line(colour = "black", 
@@ -282,62 +261,4 @@ plt2 + theme_classic() + # White background
   theme(legend.key.size = unit(0.8, 'cm')) -> plt3
 plt3
 
-# plt + geom_text(data = df6, aes(y=smooth, label=sprintf( df6$Samples)), color="black")
-# 
-# plt + scale_y_continuous(breaks=seq(0,0.4,0.2)) + # Setting the tick marks on an axis
-#       scale_y_continuous(limits = c(0, 0.3)) + 
-#       annotate('text', x = df6$avg, y = df6$Fre,
-#                label = sprintf( df6$Samples), vjust = 0)
-# 
-# # Text.df = as.data.frame(matrix(nrow=nrow(Anno.df),ncol=0))
-# Text.df <- df6 %>% group_by(Samples) %>% summarise(Fre=max(Fre))
-# Text.df <- df6 %>% group_by(Samples) %>% summarise(xmin=min(avg))
-# 
-# Text.df <- left_join(Text.df,df6)
-# Text.df <-Text.df[Text.df$Range==1,] 
-# 
-# 
-# 
-# library(geomtextpath)
-# plt + scale_y_continuous(breaks=seq(0,0.4,0.2)) + # Setting the tick marks on an axis
-#   scale_y_continuous(limits = c(0, 0.3))+ 
-#   annotate('text', x = Text.df$xmin, y = Text.df$Fre,
-#            label = sprintf( Text.df$Samples), vjust = 0)
-# 
-# 
-# ###############################################################################################################################
-# ## https://stackoverflow.com/questions/54135969/how-to-put-the-legends-in-the-peaks-of-multiple-distributions-using-ggplot
-# labels <-
-#   lapply(split(df6, df6$Samples), function(x){
-#     dens <- density(x$avg)  # compute density of each variable
-#     
-#     data.frame(y = max(dens$y),  # get maximum density of each variable
-#                x = dens$x[which(dens$y == max(dens$y))],  # get corresponding x value
-#                label = x$Samples[1])
-#   })
-# 
-# 
-# plt + scale_y_continuous(breaks=seq(0,0.4,0.2)) + # Setting the tick marks on an axis
-#   scale_y_continuous(limits = c(0, 0.3))+  
-#   geom_text(data = do.call(rbind, labels), aes(x = x, y = y, label = label), 
-#             inherit.aes = F, 
-#             nudge_y = 0.03) +
-#   labs(fill="")
-# 
-# 
-# ##
-# #library(ggpubr)
-# plt <- df6 %>%
-#   ggplot( mapping =aes(x=avg, y=Fre,color=Samples,fill=Group ,
-#                        group=Samples, shape= Group))  +
-#   geom_point(aes(x=avg, y=Fre, color=Group ))+
-#   scale_shape_manual(values = seq(1:nrow(Anno.df))) + # https://www.datanovia.com/en/blog/ggplot-point-shapes-best-tips/
-#   #show_point_shapes(aes(x=avg, y=Fre, color=Group, shape= Samples ))+
-#   geom_smooth(se=F)+
-#   ggtitle("Full_data") # +
-# plt 
-# # ylim(0,0.03)+
-# # geom_vline(xintercept = 1, color = "#5B5B5B", linetype="dotted", size=0.6)+
-# # geom_vline(xintercept = 2, color = "#5B5B5B", linetype="dotted", size=0.6)+
-# # theme_classic()
-# 
+

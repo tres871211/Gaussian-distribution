@@ -152,7 +152,7 @@
      #### At Max y  ####
       # https://stackoverflow.com/questions/71162252/adding-the-maximum-peak-value-in-ggplot-for-geom-smoth
       # create the smooth and retain rows with max of smooth, using slice_max
-      sm_max = FreDis.df %>% group_by(Samples) %>%
+      sm_max = FreDis.df %>% distinct(.,Range,Fre,Samples,avg,Groups) %>% group_by(Samples) %>%
               mutate(smooth =predict(loess(Fre~as.numeric(avg), span=.5))) %>% 
               slice_max(order_by = smooth)
       ## Plot
@@ -180,7 +180,8 @@
     
     
      #### At Max y in center ####
-      Deriv.df = FreDis.df %>% group_by(Samples) %>% mutate(smooth =predict(loess(Fre~as.numeric(avg), span=.5))) 
+      Deriv.df = FreDis.df %>% distinct(.,Range,Fre,Samples,avg,Groups) %>% 
+                               group_by(Samples) %>% mutate(smooth =predict(loess(Fre~as.numeric(avg), span=.5))) 
       Samples.set <- Anno.df$Samples
       
       ## Using Calculus to Find Extreme Values
@@ -188,14 +189,14 @@
         if(i==1){
           Deriv2.df <- Deriv.df[Deriv.df$Samples == Samples.set[i], ]
           model <- smooth.spline(x = Deriv2.df$avg, y = Deriv2.df$smooth)
-          Y0 <- predict(model, x = seq(0.1,max(Deriv2.df$avg),length=1000), deriv=0)
-          Y1 <- predict(model, x = seq(0.1,max(Deriv2.df$avg),length=1000), deriv=1)
-          Y2 <- predict(model, x = seq(0.1,max(Deriv2.df$avg),length=1000), deriv=2)
+          Y0 <- predict(model, x = seq(0.1,max(Deriv2.df$avg),length=50), deriv=0)
+          Y1 <- predict(model, x = seq(0.1,max(Deriv2.df$avg),length=50), deriv=1)
+          Y2 <- predict(model, x = seq(0.1,max(Deriv2.df$avg),length=50), deriv=2)
           DerivSR.df <- data.frame(x=Y1$x, y=Y0$y ,d1=Y1$y, d2=Y2$y)
           DerivSR.df <- DerivSR.df[DerivSR.df$d2 < 0,]
           
           for (j in 1:nrow(DerivSR.df)) {
-            if(DerivSR.df$d1[j] == min(DerivSR.df$d1) && DerivSR.df$d2[j] < 0)
+            if(DerivSR.df$d1[j] == min(DerivSR.df$d1) )
               Deriv2.df$x = DerivSR.df$x[j]
               Deriv2.df$y = DerivSR.df$y[j]
             
@@ -203,14 +204,14 @@
         }else{
             DerivS.df <- Deriv.df[Deriv.df$Samples == Samples.set[i], ]
             model <- smooth.spline(x = DerivS.df$avg, y = DerivS.df$smooth)
-            Y0 <- predict(model, x = seq(0.1,max(DerivS.df$avg),length=1000), deriv=0)
-            Y1 <- predict(model, x = seq(0.1,max(DerivS.df$avg),length=1000), deriv=1)
-            Y2 <- predict(model, x = seq(0.1,max(DerivS.df$avg),length=1000), deriv=2)
+            Y0 <- predict(model, x = seq(0.1,max(DerivS.df$avg),length=50), deriv=0)
+            Y1 <- predict(model, x = seq(0.1,max(DerivS.df$avg),length=50), deriv=1)
+            Y2 <- predict(model, x = seq(0.1,max(DerivS.df$avg),length=50), deriv=2)
             DerivSR.df <- data.frame(x=Y1$x, y=Y0$y ,d1=Y1$y, d2=Y2$y)
             DerivSR.df <- DerivSR.df[DerivSR.df$d2 < 0,]
             
             for (j in 1:nrow(DerivSR.df)) {
-              if(DerivSR.df$d1[j] == min(DerivSR.df$d1) && DerivSR.df$d2[j] < 0)
+              if(DerivSR.df$d1[j] == min(DerivSR.df$d1) )
                 DerivS.df$x = DerivSR.df$x[j]
                 DerivS.df$y = DerivSR.df$y[j]
             }
@@ -221,8 +222,11 @@
       Deriv.df <- Deriv2.df
       rm(DerivS.df, DerivSR.df, model, Y0,Y1,Y2,Deriv2.df)
       
-      Deriv.df <- left_join(sm_max,Deriv.df[, c("Range", "Samples", "x","y")],by = c("Range", "Samples"))
-
+      sm_max2 = FreDis.df %>% group_by(Samples) %>%
+        mutate(smooth =predict(loess(Fre~as.numeric(avg), span=.5))) %>% 
+        slice_max(order_by = smooth)
+      Deriv.df <- left_join( sm_max2,Deriv.df[, c("Range", "Samples", "x","y")], by = c("Range", "Samples") )%>% distinct(.,Range,Samples,avg,Groups,.keep_all=T)
+      rm(sm_max2)
       ## Plot
       P_OvDenPoint + geom_text(data = Deriv.df, aes(x=x,y=smooth, label=paste0(Deriv.df$Samples,": ",round(smooth,4)), 
                                                         color=Groups), size=4, face="bold") +

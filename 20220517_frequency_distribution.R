@@ -221,10 +221,10 @@
       Deriv.df <- Deriv2.df
       rm(DerivS.df, DerivSR.df, model, Y0,Y1,Y2,Deriv2.df)
       
-      Deriv_max.df <- left_join(sm_max,Deriv.df[, c("Range", "Samples", "x","y")],by = c("Range", "Samples"))
+      Deriv.df <- left_join(sm_max,Deriv.df[, c("Range", "Samples", "x","y")],by = c("Range", "Samples"))
 
       ## Plot
-      P_OvDenPoint + geom_text(data = Deriv_max.df, aes(x=x,y=smooth, label=paste0(Deriv_max.df$Samples,": ",round(smooth,4)), 
+      P_OvDenPoint + geom_text(data = Deriv.df, aes(x=x,y=smooth, label=paste0(Deriv.df$Samples,": ",round(smooth,4)), 
                                                         color=Groups), size=4, face="bold") +
         theme_classic() + # White background
         theme(axis.line = element_line(colour = "black", 
